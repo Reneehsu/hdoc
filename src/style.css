@@ -1,0 +1,12 @@
+.CENTERALIGN {
+  text-align: center;
+}
+.LEFTALIGN {
+  text-align: left;
+}
+.RIGHTALIGN {
+  text-align: right;
+}
+.margin {
+  margin: 2px;
+}
