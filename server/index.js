@@ -24,6 +24,7 @@ mongoose.connection.on('connected', function() {
 mongoose.connect(process.env.MONGODB_URI);
 const User = models.User;
 const Document = models.Document;
+const Ownership = models.Ownership;
 
 //SESSION SETUP
 import session from 'express-session';
@@ -94,17 +95,55 @@ app.post('/create', function(req,res){
     password: req.body.password,
     content: "",
   })
-  newDoc.save(function(err){
+  newDoc.save(function(err, doc){
+    if (err) {
+      res.json({success: false});
+    } else {
+      res.json({success: true, document: doc});
+    }
+  });
+})
+
+app.post('/createownership', function(req,res){
+  console.log('createownership', req.body.user, req.body.document);
+  var newOwnership = new Ownership ({
+    user: req.body.user._id,
+    document: req.body.document._id
+  });
+  newOwnership.save(function(err, ownership){
+    console.log('error', err, ownership);
     if (err) {
       res.json({success: false});
     } else {
       res.json({success: true});
     }
-  });
+  })
+})
+
+app.post('/checkpassword', function(req,res){
+  Document.findById(req.body.docId, function(err, doc) {
+    if (err) {
+      console.log(errorrrr);
+    } else {
+      if (req.body.password === doc.password) {
+        res.json({success: true, document: doc});
+      } else {
+        res.json({success: false})
+      }
+    }
+  })
 })
 
 app.get('/document/:id', function(req,res){
   const id = req.params.id;
+  console.log('id',id);
+  Ownership.find({user:id}, function(err, ownerships){
+    if (err) {
+      console.log(err);
+    } else {
+      res.json(ownerships.map(ons => ons.document));
+    }
+  })
 })
 
 app.listen(1337);

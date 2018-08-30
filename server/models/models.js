@@ -1,4 +1,5 @@
-var mongoose = require('mongoose');
+import mongoose from 'mongoose';
+import { EditorState } from 'draft-js';
 
 if (!process.env.MONGODB_URI) {
   console.log('Error: MONGODB_URI NOT SET');
@@ -26,10 +27,23 @@ var documentSchema = {
   }
 }
 
+var ownershipSchema = {
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  document: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Document'
+  }
+}
+
 var User = mongoose.model("User", userSchema);
 var Document = mongoose.model('Document', documentSchema);
+var Ownership = mongoose.model('Ownership', ownershipSchema);
 
 module.exports = {
   User: User,
-  Document: Document
+  Document: Document,
+  Ownership: Ownership
 }
