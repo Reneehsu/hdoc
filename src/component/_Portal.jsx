@@ -1,5 +1,7 @@
 import React from 'react';
 import prompt from 'electron-prompt';
+const {dialog} = require('electron').remote;
+
 
 class _Portal extends React.Component {
   constructor(props) {
@@ -7,7 +9,7 @@ class _Portal extends React.Component {
     this.state={
       newDoc: "",
       docId: "",
-      docs: ['empty']
+      docs: []
     }
   }
   componentDidMount() {
@@ -42,6 +44,10 @@ class _Portal extends React.Component {
   }
 
   createPassword(){
+    if (this.state.newDoc === "") {
+      dialog.showErrorBox('ERROR', 'EMPTY TITLE NAME');
+      return;
+    }
     prompt({
       title: 'Enter password',
       label: 'Please input a password for this document:',
@@ -49,6 +55,9 @@ class _Portal extends React.Component {
     .then((r) => {
         if(r === null) {
             console.log('user cancelled');
+        } else if (r === ""){
+            dialog.showErrorBox('ERROR', 'EMPTY PASSWORD');
+            this.createPassword();
         } else{
             this.createDocument(r);
             console.log('result', r);
@@ -67,7 +76,6 @@ class _Portal extends React.Component {
             console.log('user cancelled');
         } else{
             this.checkPassword(r);
-            //this.createOwnership(r);
             console.log('result', r);
         }
     })
@@ -88,9 +96,10 @@ class _Portal extends React.Component {
     .then((response) => response.json())
     .then((responseJson) => {
       if (responseJson.success) {
-
         this.createOwnership(responseJson.document);
       } else {
+        dialog.showErrorBox('ERROR', 'WRONG PASSWORD');
+        this.enterPassword();
         console.log('failed');
       }
     })
@@ -139,13 +148,15 @@ class _Portal extends React.Component {
     .then((responseJson) => {
       if (responseJson.success) {
           let newDocs = this.state.docs.slice();
-          newDocs.push(document._id);
+          newDocs.push(document);
           console.log(newDocs);
           this.setState({
             docId: "",
             newDoc: "",
             docs: newDocs
           })
+          this.props.setDoc(document._id);
+          this.props.changePage('Document');
       } else {
           console.log('Error');
       }
@@ -155,14 +166,34 @@ class _Portal extends React.Component {
     })
   }
 
-  findDoc() {
+  findDoc(doc) {
+    this.props.setDoc(doc);
     this.props.changePage('Document');
   }
-  render() {
 
+  logout(){
+    fetch('http://127.0.0.1:1337/logout', {
+      method: 'GET',
+    })
+    .then((response) => response.json())
+    .then((responseJson) => {
+      if (responseJson.success) {
+        this.props.changePage('Login')
+        this.props.setUser(null);
+      } else {
+        console.log(responseJson);
+      }
+    })
+    .catch((err) => {
+      console.log('err', err);
+    });
+  }
+
+  render() {
     return(
       <div style={{margin:'20px'}}>
         <div>
+          <button className="btn btn-secondary margin" style={{float:'right'}} onClick={() => (this.logout())}>Log out</button>
           <h4>{this.props.user.email}</h4>
           <input className="form-control margin" value={this.state.newDoc} style={{width: '400px', display: 'inline-block'}} onChange={(event) => this.newDoc(event)} placeholder="new document title"></input>
           <button className="btn btn-secondary margin" onClick={()=>this.createPassword()}>Create document</button>
@@ -173,8 +204,7 @@ class _Portal extends React.Component {
         </div>
         <div style={{border: '2px solid black', padding: '5px', margin:'2px'}}>
           <h4>My documents: </h4>
-          {this.state.docs.map(doc => <div key={doc} >{doc}</div>)}
-          <button onClick={() => this.findDoc()}>My first doc</button>
+          {this.state.docs.map(doc => <div key={doc._id} ><button onClick={() => this.findDoc(doc._id)}>{doc.title}</button></div> )}
         </div>
       </div>
     )

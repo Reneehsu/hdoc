@@ -32,14 +32,17 @@ const MongoStore = require('connect-mongo')(session);
 
 app.use(session({
   secret:'my secret password',
-  store: new MongoStore({mongooseConnection: require('mongoose').connection})
+  store: new MongoStore({mongooseConnection: require('mongoose').connection}),
+  saveUninitialized: false
 }));
 
 //PASSPORT LOCALSTRATEGY
 passport.use(new LocalStrategy(
   function(username, password, done){
     User.findOne({email: username}, function(err, user){
-      if (password === user.password){
+      if (user === null) {
+        done(null, false);
+      } else if (password === user.password){
         done(null, user);
       } else {
         done(null, false);
@@ -105,13 +108,11 @@ app.post('/create', function(req,res){
 })
 
 app.post('/createownership', function(req,res){
-  console.log('createownership', req.body.user, req.body.document);
   var newOwnership = new Ownership ({
     user: req.body.user._id,
     document: req.body.document._id
   });
   newOwnership.save(function(err, ownership){
-    console.log('error', err, ownership);
     if (err) {
       res.json({success: false});
     } else {
@@ -136,15 +137,50 @@ app.post('/checkpassword', function(req,res){
 
 app.get('/document/:id', function(req,res){
   const id = req.params.id;
-  console.log('id',id);
   Ownership.find({user:id}, function(err, ownerships){
     if (err) {
       console.log(err);
     } else {
-      res.json(ownerships.map(ons => ons.document));
+      const promises = ownerships.map(ons => Document.findById(ons.document, function(err, doc){
+        return doc
+      }));
+      Promise.all(promises).then(function(values){
+        res.send(values);
+      })
     }
   })
 })
+
+app.get('/getdocinfo/:id', function(req,res){
+  const id = req.params.id;
+  Document.findById(id, function(err, doc){
+    if (err) {
+      console.log(err);
+    } else {
+      res.json(doc);
+    }
+  })
+})
+
+app.post('/savedoc', function(req, res){
+  console.log('savedoc, req.body.content',req.body.content);
+  console.log('savedoc, req.body.docId',req.body.docId);
+  Document.findOneAndUpdate({_id: req.body.docId}, {content: req.body.content}, function(err, doc) {
+    if (err) {
+      console.log(err);
+    } else {
+      doc.save(function(err){
+        if (err) {
+          console.log(err);
+        } else {
+          res.json({success:true});
+        }
+      });
+    }
+  })
+})
+
+
 
 app.listen(1337);
 console.log('Server running at http://127.0.0.1:1337/');

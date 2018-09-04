@@ -8,14 +8,16 @@ import _Portal from './component/_Portal';
 const mapStateToProps = (state) => {
   return {
     page: state.page,
-    user: state.user
+    user: state.user,
+    doc: state.doc
   }
 };
 
 const mapDispatchToProps = (dispatch) => {
   return {
     changePage: (page) => dispatch({type: 'PAGE', page: page}),
-    setUser: (user) => dispatch({type: 'SET_USER', user: user})
+    setUser: (user) => dispatch({type: 'SET_USER', user: user}),
+    setDoc: (doc) => dispatch({type: 'SET_DOC', doc: doc})
   }
 }
 

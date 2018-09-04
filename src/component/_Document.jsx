@@ -1,5 +1,5 @@
 import React from 'react';
-import { Editor, EditorState, RichUtils } from 'draft-js';
+import { Editor, EditorState, RichUtils, convertToRaw, convertFromRaw } from 'draft-js';
 
 const styleMap = {
   STRIKETHROUGH: {
@@ -26,9 +26,42 @@ function myBlockStyleFn(contentBlock) {
 class _Document extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { editorState: EditorState.createEmpty(), colorDrop: false, fontDrop: false };
+    this.state = { editorState: EditorState.createEmpty(), colorDrop: false, fontDrop: false, intervalId: null };
     this.onChange = editorState => this.setState({ editorState });
   }
+  componentDidMount () {
+    console.log(this.props.doc);
+    fetch(`http://127.0.0.1:1337/getdocinfo/${this.props.doc}`, {
+      method: 'GET',
+    })
+    .then((response) => response.json())
+    .then((responseJson) => {
+      if (responseJson) {
+        let editorState;
+        if (responseJson.content !== "") {
+          const contentState = convertFromRaw( JSON.parse(responseJson.content) );
+          this.setState({
+            editorState: EditorState.createWithContent(contentState),
+          })
+        }
+
+        const intervalId = setInterval(this.save.bind(this), 3000);
+        this.setState({
+          intervalId: intervalId
+        })
+      } else {
+        console.log(responseJson);
+      }
+    })
+    .catch((err) => {
+      console.log('err', err);
+    });
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.state.intervalId);
+  }
+
   onBoldClick() {
     this.onChange(RichUtils.toggleInlineStyle(
       this.state.editorState,
@@ -96,12 +129,44 @@ class _Document extends React.Component {
       console.log('err', err);
     });
   }
+  portal(){
+    this.props.changePage('Portal');
+  }
+
+  save() {
+    const rawDraftContentState = JSON.stringify( convertToRaw(this.state.editorState.getCurrentContent()) );
+    console.log(rawDraftContentState);
+    console.log('save', this.props.doc);
+    fetch('http://127.0.0.1:1337/savedoc', {
+      method: 'POST',
+      headers: {
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        docId: this.props.doc,
+        content: rawDraftContentState
+      })
+    })
+    .then((response) => response.json())
+    .then((responseJson) => {
+      if (responseJson.success) {
+        console.log('successfully saved');
+      } else {
+        console.log('failed');
+      }
+    })
+    .catch((err) => {
+      console.log('err', err);
+    });
+  }
+
   render() {
     const colorMenu = `dropdown-menu${this.state.colorDrop ? ' show' : ''}`;
     const fontMenu = `dropdown-menu${this.state.fontDrop ? ' show' : ''}`;
+    console.log(this.props.doc);
     return (
       <div id="content" style={{ margin: '20px' }}>
-        {/* <h1 style={{ backgroundColor: 'blue' }}>Horizons Doc</h1> */}
+        <h1>{this.props.doc}</h1>
         <button className="btn btn-secondary margin" onClick={() => (this.onBoldClick())}>
           <i className="fas fa-bold" />
         </button>
@@ -156,6 +221,8 @@ class _Document extends React.Component {
             {color.map(cr => <a key={cr} className="dropdown-item" onClick={() => (this.onFontClick(cr))}>{cr}</a>)}
           </div>
         </div>
+          <button className="btn btn-secondary margin" style={{float:'right'}} onClick={() => (this.save())}>Save</button>
+        <button className="btn btn-secondary margin" style={{float:'right'}} onClick={() => (this.portal())}>Go back to portal</button>
         <button className="btn btn-secondary margin" style={{float:'right'}} onClick={() => (this.logout())}>Log out</button>
         <div style={{
           border: '2px solid grey',
