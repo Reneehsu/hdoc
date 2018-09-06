@@ -9,8 +9,35 @@ import mongoose from 'mongoose';
 
 //Express setup
 const app = express();
+const server = require('http').Server(app);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
+
+//socket.io
+const io = require('socket.io')(server);
+
+io.on('connection', function(socket){
+  socket.on('join_room', function({room, user}){
+    socket.join(room);
+    io.to(room).emit('user_joined', {user:user.email});
+  });
+  socket.on('content_change', function({content, room}){
+    socket.broadcast.to(room).emit('content_update', {content});
+    Document.findOneAndUpdate({_id: room}, {content: content}, function(err, doc) {
+      if (err) {
+        console.log(err);
+      } else {
+        doc.save(function(err){
+          if (err) {
+            console.log(err);
+          } else {
+            console.log('successfully saved');
+          }
+        });
+      }
+    })
+  });
+})
 
 //mongoose setup
 mongoose.connection.on('error', function() {
@@ -182,5 +209,5 @@ app.post('/savedoc', function(req, res){
 
 
 
-app.listen(1337);
+server.listen(1337);
 console.log('Server running at http://127.0.0.1:1337/');

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Editor, EditorState, RichUtils, convertToRaw, convertFromRaw } from 'draft-js';
+const io = require('socket.io-client');
 
 const styleMap = {
   STRIKETHROUGH: {
@@ -26,10 +27,23 @@ function myBlockStyleFn(contentBlock) {
 class _Document extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { editorState: EditorState.createEmpty(), colorDrop: false, fontDrop: false, intervalId: null };
-    this.onChange = editorState => this.setState({ editorState });
+    var socket = io('http://127.0.0.1:1337/');
+    this.state = {
+      editorState: EditorState.createEmpty(),
+      colorDrop: false,
+      fontDrop: false,
+      intervalId: null,
+      socket: socket
+    };
+
+    this.onChange = editorState => {
+      this.setState({ editorState });
+      const rawDraftContentState = JSON.stringify( convertToRaw( editorState.getCurrentContent()) );
+      this.state.socket.emit('content_change', {content: rawDraftContentState, room: this.props.doc});
+    };
   }
   componentDidMount () {
+    var self = this;
     console.log(this.props.doc);
     fetch(`http://127.0.0.1:1337/getdocinfo/${this.props.doc}`, {
       method: 'GET',
@@ -44,11 +58,10 @@ class _Document extends React.Component {
             editorState: EditorState.createWithContent(contentState),
           })
         }
-
-        const intervalId = setInterval(this.save.bind(this), 3000);
-        this.setState({
-          intervalId: intervalId
-        })
+        // const intervalId = setInterval(this.save.bind(this), 3000);
+        // this.setState({
+        //   intervalId: intervalId
+        // })
       } else {
         console.log(responseJson);
       }
@@ -56,12 +69,23 @@ class _Document extends React.Component {
     .catch((err) => {
       console.log('err', err);
     });
-  }
 
-  componentWillUnmount() {
-    clearInterval(this.state.intervalId);
-  }
+    this.state.socket.emit('join_room', {room: this.props.doc, user: this.props.user});
+    this.state.socket.on('user_joined', function({user}){
+      console.log(`${user} has joined room`);
+    })
 
+    this.state.socket.on('content_update', function({content}){
+      console.log(content);
+      console.log('this',this);
+      self.setState({
+        editorState: EditorState.createWithContent(convertFromRaw( JSON.parse(content)))
+      })
+    })
+  }
+  // componentWillUnmount() {
+  //   clearInterval(this.state.intervalId);
+  // }
   onBoldClick() {
     this.onChange(RichUtils.toggleInlineStyle(
       this.state.editorState,
